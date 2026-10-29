@@ -24,7 +24,7 @@
         }
     </script>
 </head>
-<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col items-center justify-between p-4 sm:p-6 font-sans">
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col items-center justify-between p-4 sm:p-6 font-sans relative">
 
     <!-- Header Section -->
     <header class="w-full max-w-2xl text-center pt-6 pb-4">
@@ -76,9 +76,18 @@
     </main>
 
     <!-- Footer -->
-    <footer class="w-full max-w-xl text-center text-xs text-slate-500 py-4 border-t border-slate-900 mt-auto">
+    <footer class="w-full max-w-xl text-center text-xs text-slate-500 py-4 border-t border-slate-900 mt-auto mb-8 sm:mb-0">
         <p>🔒 Firma Criptográfica SHA-256 • Identificador Único de Hardware • Inmune a Cambios de IP/VPN.</p>
     </footer>
+
+    <!-- Marca de Agua / Badge "Powered by Esneo" -->
+    <div class="fixed bottom-3 right-3 sm:bottom-4 sm:right-4 z-50 pointer-events-none select-none opacity-80 hover:opacity-100 transition-opacity">
+        <div class="flex items-center gap-1.5 bg-slate-900/90 border border-slate-800 px-3 py-1.5 rounded-full shadow-lg backdrop-blur-md text-[11px] font-medium text-slate-400">
+            <span class="text-slate-500">Powered by</span>
+            <span class="font-black tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-sky-400 to-emerald-400">ESNEO</span>
+            <span class="w-1.5 h-1.5 rounded-full bg-sky-400 animate-ping ml-0.5"></span>
+        </div>
+    </div>
 
     <!-- Application Script -->
     <script type="module">
@@ -164,24 +173,7 @@
             }
         }
 
-        // --- 2. HUELLA DE HARDWARE MULTIPLATAFORMA (Inmune a IP, VPN y Navegador) ---
-        function getWebGLFingerprint() {
-            try {
-                const canvas = document.createElement('canvas');
-                const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
-                if (!gl) return 'no-webgl';
-                const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
-                if (debugInfo) {
-                    const vendor = gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL);
-                    const renderer = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL);
-                    return `${vendor}~${renderer}`;
-                }
-                return 'no-debug-info';
-            } catch (e) {
-                return 'webgl-error';
-            }
-        }
-
+        // --- 2. HUELLA DE HARDWARE INVARIANTE ENTRE NAVEGADORES ---
         async function computeSHA256(str) {
             const buffer = new TextEncoder().encode(str);
             const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
@@ -190,17 +182,16 @@
         }
 
         async function generateHardwareHash() {
-            // Omitimos navigator.userAgent para que sea idéntico en cualquier navegador del mismo dispositivo
+            // Usamos únicamente valores físicos de pantalla y chip que son 100% idénticos en cualquier navegador del mismo equipo
             const components = [
                 screen.width,
                 screen.height,
                 screen.colorDepth,
                 screen.pixelDepth || 'unknown',
                 window.devicePixelRatio || 1,
+                new Date().getTimezoneOffset(),
                 navigator.hardwareConcurrency || 'unknown',
-                navigator.deviceMemory || 'unknown',
                 navigator.maxTouchPoints || 'unknown',
-                getWebGLFingerprint(),
                 HMAC_SALT
             ];
             const rawString = components.join('|||');
