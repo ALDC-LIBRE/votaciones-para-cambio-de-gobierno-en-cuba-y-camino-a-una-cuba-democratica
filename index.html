@@ -126,7 +126,7 @@
         const DB_NAME = "ALDC_LIBRE_SECURE_DB";
         const STORE_NAME = "registros";
 
-        // --- 1. INDEXEDDB SETUP (Persistencia Profunda) ---
+        // --- 1. INDEXEDDB SETUP (Persistencia Profunda Anti-Borrado) ---
         function openIndexedDB() {
             return new Promise((resolve, reject) => {
                 const request = indexedDB.open(DB_NAME, 1);
@@ -173,7 +173,7 @@
             }
         }
 
-        // --- 2. HUELLA DE HARDWARE INVARIANTE ENTRE NAVEGADORES ---
+        // --- 2. HUELLA DE HARDWARE NATIVA (Opción A: Inmune a IP, VPN y Navegador) ---
         async function computeSHA256(str) {
             const buffer = new TextEncoder().encode(str);
             const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
@@ -182,16 +182,16 @@
         }
 
         async function generateHardwareHash() {
-            // Usamos únicamente valores físicos de pantalla y chip que son 100% idénticos en cualquier navegador del mismo equipo
+            // Resolución física nativa pura (Multiplicando ancho y alto por la densidad de píxeles)
+            const rawWidth = window.screen.width * (window.devicePixelRatio || 1);
+            const rawHeight = window.screen.height * (window.devicePixelRatio || 1);
+
             const components = [
-                screen.width,
-                screen.height,
+                Math.round(rawWidth),
+                Math.round(rawHeight),
                 screen.colorDepth,
-                screen.pixelDepth || 'unknown',
-                window.devicePixelRatio || 1,
                 new Date().getTimezoneOffset(),
-                navigator.hardwareConcurrency || 'unknown',
-                navigator.maxTouchPoints || 'unknown',
+                navigator.hardwareConcurrency || 4,
                 HMAC_SALT
             ];
             const rawString = components.join('|||');
@@ -281,10 +281,11 @@
             messageArea.textContent = "";
         }
 
-        // --- 4. EMISIÓN DEL VOTO Y TRANSACCIÓN EN FIRESTORE ---
+        // --- 4. EMISIÓN DEL VOTO Y TRANSACCIÓN ATÓMICA EN FIRESTORE ---
         async function handleVote() {
             if (hasVoted || isProcessing) return;
 
+            // Protección anti-bot: acción demasiado rápida al cargar la página
             if (Date.now() - loadTime < 800) {
                 messageArea.className = "text-xs text-red-400 font-medium";
                 messageArea.textContent = "Error: Acción demasiado rápida.";
@@ -305,7 +306,7 @@
                 const counterRef = doc(db, "votes", "global_counter");
                 const userVoteRef = doc(db, "user_registrations", hardwareHash);
 
-                // Transacción atómica en Firestore
+                // Transacción atómica blindada en Firestore
                 await runTransaction(db, async (transaction) => {
                     const userDoc = await transaction.get(userVoteRef);
                     if (userDoc.exists()) {
