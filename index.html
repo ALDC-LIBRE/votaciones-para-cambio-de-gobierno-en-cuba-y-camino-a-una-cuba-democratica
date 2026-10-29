@@ -197,29 +197,32 @@
             return await computeSHA256(rawString);
         }
 
-        // --- 3. INICIALIZACIÓN Y VERIFICACIÓN (Con Interruptor de Emergencia) ---
+        // --- 3. INICIALIZACIÓN Y VERIFICACIÓN ---
         async function initSecurity() {
             try {
-                // A. Verificar Interruptor Maestro de Emergencia en Firestore
+                // A. Verificar Interruptor Maestro de Emergencia de forma tolerante
                 const configRef = doc(db, "system_config", "controls");
                 const configSnap = await getDoc(configRef);
 
-                if (configSnap.exists() && configSnap.data().votingActive === false) {
-                    lockVoteButton("La web está bajo ataques. Pausamos las votaciones para hacer mantenimiento de seguridad.");
-                    statusText.innerHTML = `<span class="text-red-400 font-semibold">⚠️ Sistema en Pausa de Seguridad</span>`;
-                    
-                    // Cargar contador global de todas formas para que se vea
-                    const voteDocRef = doc(db, "votes", "global_counter");
-                    const counterSnap = await getDoc(voteDocRef);
-                    if (counterSnap.exists()) {
-                        voteCountEl.textContent = Number(counterSnap.data().total || 0).toLocaleString();
-                    } else {
-                        voteCountEl.textContent = "0";
+                // Solo se pausa si el documento existe Y votingActive es estrictamente false
+                if (configSnap.exists()) {
+                    const data = configSnap.data();
+                    if (data.votingActive === false) {
+                        lockVoteButton("La web está bajo ataques. Pausamos las votaciones para hacer mantenimiento de seguridad.");
+                        statusText.innerHTML = `<span class="text-red-400 font-semibold">⚠️ Sistema en Pausa de Seguridad</span>`;
+                        
+                        const voteDocRef = doc(db, "votes", "global_counter");
+                        const counterSnap = await getDoc(voteDocRef);
+                        if (counterSnap.exists()) {
+                            voteCountEl.textContent = Number(counterSnap.data().total || 0).toLocaleString();
+                        } else {
+                            voteCountEl.textContent = "0";
+                        }
+                        return;
                     }
-                    return;
                 }
             } catch (e) {
-                console.warn("No se pudo verificar el estado del sistema, continuando...", e);
+                console.warn("Aviso de red al verificar configuración, continuando con normalidad...", e);
             }
 
             // Generar huella de dispositivo
@@ -320,7 +323,7 @@
             `;
 
             try {
-                // Doble chequeo rápido del interruptor antes de escribir
+                // Chequeo de seguridad antes de escribir
                 const configRef = doc(db, "system_config", "controls");
                 const configSnap = await getDoc(configRef);
                 if (configSnap.exists() && configSnap.data().votingActive === false) {
