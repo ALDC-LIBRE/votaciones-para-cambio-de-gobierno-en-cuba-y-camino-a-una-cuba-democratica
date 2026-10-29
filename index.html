@@ -164,23 +164,21 @@
             }
         }
 
-        // --- 2. HUELLA DE HARDWARE PURA (Inmune a IP y VPN) ---
-        function getCanvasFingerprint() {
+        // --- 2. HUELLA DE HARDWARE MULTIPLATAFORMA (Inmune a IP, VPN y Navegador) ---
+        function getWebGLFingerprint() {
             try {
                 const canvas = document.createElement('canvas');
-                const ctx = canvas.getContext('2d');
-                canvas.width = 200;
-                canvas.height = 50;
-                ctx.textBaseline = "alphabetic";
-                ctx.fillStyle = "#f60";
-                ctx.fillRect(125, 1, 62, 20);
-                ctx.fillStyle = "#069";
-                ctx.fillText("ALDC-LIBRE-HARDWARE-VOTE", 2, 15);
-                ctx.fillStyle = "rgba(102, 204, 0, 0.7)";
-                ctx.fillText("ALDC-LIBRE-HARDWARE-VOTE", 4, 17);
-                return canvas.toDataURL();
+                const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+                if (!gl) return 'no-webgl';
+                const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+                if (debugInfo) {
+                    const vendor = gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL);
+                    const renderer = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL);
+                    return `${vendor}~${renderer}`;
+                }
+                return 'no-debug-info';
             } catch (e) {
-                return "no-canvas";
+                return 'webgl-error';
             }
         }
 
@@ -192,15 +190,17 @@
         }
 
         async function generateHardwareHash() {
+            // Omitimos navigator.userAgent para que sea idéntico en cualquier navegador del mismo dispositivo
             const components = [
-                navigator.userAgent,
-                navigator.language,
+                screen.width,
+                screen.height,
                 screen.colorDepth,
-                `${screen.width}x${screen.height}`,
-                new Date().getTimezoneOffset(),
+                screen.pixelDepth || 'unknown',
+                window.devicePixelRatio || 1,
                 navigator.hardwareConcurrency || 'unknown',
                 navigator.deviceMemory || 'unknown',
-                getCanvasFingerprint(),
+                navigator.maxTouchPoints || 'unknown',
+                getWebGLFingerprint(),
                 HMAC_SALT
             ];
             const rawString = components.join('|||');
@@ -209,7 +209,7 @@
 
         // --- 3. INICIALIZACIÓN Y VERIFICACIÓN ---
         async function initSecurity() {
-            // Generar huella inmune a IP
+            // Generar huella fija de dispositivo
             hardwareHash = await generateHardwareHash();
 
             // A. Revisión local profunda (LocalStorage + IndexedDB)
