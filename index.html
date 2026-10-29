@@ -203,7 +203,7 @@
                 getCanvasFingerprint(),
                 HMAC_SALT
             ];
-            const rawString = componentes.join('|||');
+            const rawString = components.join('|||');
             return await computeSHA256(rawString);
         }
 
