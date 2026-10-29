@@ -126,7 +126,7 @@
         const DB_NAME = "ALDC_LIBRE_SECURE_DB";
         const STORE_NAME = "registros";
 
-        // --- 1. INDEXEDDB SETUP (Persistencia Profunda Anti-Borrado) ---
+        // --- 1. INDEXEDDB SETUP ---
         function openIndexedDB() {
             return new Promise((resolve, reject) => {
                 const request = indexedDB.open(DB_NAME, 1);
@@ -173,7 +173,7 @@
             }
         }
 
-        // --- 2. HUELLA DE HARDWARE NATIVA (Opción A: Inmune a IP, VPN y Navegador) ---
+        // --- 2. HUELLA DE HARDWARE ---
         async function computeSHA256(str) {
             const buffer = new TextEncoder().encode(str);
             const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
@@ -182,7 +182,6 @@
         }
 
         async function generateHardwareHash() {
-            // Resolución física nativa pura (Multiplicando ancho y alto por la densidad de píxeles)
             const rawWidth = window.screen.width * (window.devicePixelRatio || 1);
             const rawHeight = window.screen.height * (window.devicePixelRatio || 1);
 
@@ -198,12 +197,35 @@
             return await computeSHA256(rawString);
         }
 
-        // --- 3. INICIALIZACIÓN Y VERIFICACIÓN ---
+        // --- 3. INICIALIZACIÓN Y VERIFICACIÓN (Con Interruptor de Emergencia) ---
         async function initSecurity() {
-            // Generar huella fija de dispositivo
+            try {
+                // A. Verificar Interruptor Maestro de Emergencia en Firestore
+                const configRef = doc(db, "system_config", "controls");
+                const configSnap = await getDoc(configRef);
+
+                if (configSnap.exists() && configSnap.data().votingActive === false) {
+                    lockVoteButton("La web está bajo ataques. Pausamos las votaciones para hacer mantenimiento de seguridad.");
+                    statusText.innerHTML = `<span class="text-red-400 font-semibold">⚠️ Sistema en Pausa de Seguridad</span>`;
+                    
+                    // Cargar contador global de todas formas para que se vea
+                    const voteDocRef = doc(db, "votes", "global_counter");
+                    const counterSnap = await getDoc(voteDocRef);
+                    if (counterSnap.exists()) {
+                        voteCountEl.textContent = Number(counterSnap.data().total || 0).toLocaleString();
+                    } else {
+                        voteCountEl.textContent = "0";
+                    }
+                    return;
+                }
+            } catch (e) {
+                console.warn("No se pudo verificar el estado del sistema, continuando...", e);
+            }
+
+            // Generar huella de dispositivo
             hardwareHash = await generateHardwareHash();
 
-            // A. Revisión local profunda (LocalStorage + IndexedDB)
+            // B. Revisión local profunda
             const localStored = localStorage.getItem(`voted_${hardwareHash}`);
             const indexedStored = await checkIndexedDB(hardwareHash);
 
@@ -211,7 +233,7 @@
                 hasVoted = true;
             }
 
-            // B. Sincronización en tiempo real del contador global en Firestore
+            // C. Sincronización en tiempo real del contador global en Firestore
             const voteDocRef = doc(db, "votes", "global_counter");
             onSnapshot(voteDocRef, (snapshot) => {
                 if (snapshot.exists()) {
@@ -226,7 +248,7 @@
                 }
             });
 
-            // C. Verificación remota directa en Firestore
+            // D. Verificación remota directa en Firestore
             await checkDatabaseVoteStatus();
         }
 
@@ -237,7 +259,6 @@
                     return;
                 }
 
-                // Consultar colección user_registrations con la huella
                 const userVoteRef = doc(db, "user_registrations", hardwareHash);
                 const userSnap = await getDoc(userVoteRef);
 
@@ -263,10 +284,10 @@
             voteBtn.className = "w-full py-5 px-8 rounded-2xl font-extrabold text-base tracking-wider uppercase transition-all duration-300 bg-slate-900 border border-slate-800 text-slate-500 cursor-not-allowed opacity-80 shadow-none";
             voteBtn.innerHTML = `
                 <svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m0 0v2m0-2h2m-2 0H10m11 3V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2h14a2 2 0 002-2zM9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg>
-                <span>Voto Ya Emitido</span>
+                <span>Votaciones Pausadas</span>
             `;
-            statusText.innerHTML = `<span class="text-emerald-400 font-semibold">✓ Verificación de dispositivo completada</span>`;
-            messageArea.className = "text-xs text-center font-medium text-amber-400/90 bg-amber-500/10 border border-amber-500/20 py-2 px-4 rounded-xl w-full";
+            statusText.innerHTML = `<span class="text-red-400 font-semibold">⚠️ Mantenimiento de seguridad activo</span>`;
+            messageArea.className = "text-xs text-center font-medium text-red-400 bg-red-500/10 border border-red-500/20 py-2 px-4 rounded-xl w-full";
             messageArea.textContent = reason;
         }
 
@@ -281,11 +302,10 @@
             messageArea.textContent = "";
         }
 
-        // --- 4. EMISIÓN DEL VOTO Y TRANSACCIÓN ATÓMICA EN FIRESTORE ---
+        // --- 4. EMISIÓN DEL VOTO ---
         async function handleVote() {
             if (hasVoted || isProcessing) return;
 
-            // Protección anti-bot: acción demasiado rápida al cargar la página
             if (Date.now() - loadTime < 800) {
                 messageArea.className = "text-xs text-red-400 font-medium";
                 messageArea.textContent = "Error: Acción demasiado rápida.";
@@ -300,13 +320,19 @@
             `;
 
             try {
+                // Doble chequeo rápido del interruptor antes de escribir
+                const configRef = doc(db, "system_config", "controls");
+                const configSnap = await getDoc(configRef);
+                if (configSnap.exists() && configSnap.data().votingActive === false) {
+                    throw new Error("SYSTEM_PAUSED");
+                }
+
                 const timeStamp = Date.now();
                 const transactionSignature = await computeSHA256(`${hardwareHash}::${timeStamp}`);
 
                 const counterRef = doc(db, "votes", "global_counter");
                 const userVoteRef = doc(db, "user_registrations", hardwareHash);
 
-                // Transacción atómica blindada en Firestore
                 await runTransaction(db, async (transaction) => {
                     const userDoc = await transaction.get(userVoteRef);
                     if (userDoc.exists()) {
@@ -331,7 +357,6 @@
                     }, { merge: true });
                 });
 
-                // Persistencia local doble
                 localStorage.setItem(`voted_${hardwareHash}`, 'true');
                 await saveIndexedDB(hardwareHash);
                 hasVoted = true;
@@ -344,6 +369,8 @@
                     localStorage.setItem(`voted_${hardwareHash}`, 'true');
                     await saveIndexedDB(hardwareHash);
                     lockVoteButton("Usted ya ha emitido su voto desde este dispositivo.");
+                } else if (error.message === "SYSTEM_PAUSED") {
+                    lockVoteButton("La web está bajo ataques. Pausamos las votaciones para hacer mantenimiento de seguridad.");
                 } else {
                     console.error("Error al procesar voto:", error);
                     messageArea.className = "text-xs text-red-400 font-medium";
@@ -355,10 +382,7 @@
             }
         }
 
-        // Event Listener
         voteBtn.addEventListener('click', handleVote);
-
-        // Iniciar
         initSecurity();
     </script>
 </body>
