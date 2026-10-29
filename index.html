@@ -200,7 +200,7 @@
         // --- 3. INICIALIZACIÓN Y VERIFICACIÓN ---
         async function initSecurity() {
             try {
-                // A. Verificar Interruptor Maestro de Emergencia de forma tolerante
+                // A. Verificar Interruptor Maestro de Emergencia
                 const configRef = doc(db, "system_config", "controls");
                 const configSnap = await getDoc(configRef);
 
@@ -208,8 +208,7 @@
                 if (configSnap.exists()) {
                     const data = configSnap.data();
                     if (data.votingActive === false) {
-                        lockVoteButton("La web está bajo ataques. Pausamos las votaciones para hacer mantenimiento de seguridad.");
-                        statusText.innerHTML = `<span class="text-red-400 font-semibold">⚠️ Sistema en Pausa de Seguridad</span>`;
+                        lockVoteButton("La web está bajo ataques. Pausamos las votaciones para hacer mantenimiento de seguridad.", true);
                         
                         const voteDocRef = doc(db, "votes", "global_counter");
                         const counterSnap = await getDoc(voteDocRef);
@@ -258,7 +257,7 @@
         async function checkDatabaseVoteStatus() {
             try {
                 if (hasVoted) {
-                    lockVoteButton("Usted ya ha emitido su voto desde este dispositivo.");
+                    lockVoteButton("Usted ya ha emitido su voto desde este dispositivo.", false);
                     return;
                 }
 
@@ -269,28 +268,42 @@
                     hasVoted = true;
                     localStorage.setItem(`voted_${hardwareHash}`, 'true');
                     await saveIndexedDB(hardwareHash);
-                    lockVoteButton("Usted ya ha emitido su voto desde este dispositivo.");
+                    lockVoteButton("Usted ya ha emitido su voto desde este dispositivo.", false);
                 } else {
                     enableVoteButton();
                 }
             } catch (err) {
                 if (hasVoted) {
-                    lockVoteButton("Usted ya ha emitido su voto desde este dispositivo.");
+                    lockVoteButton("Usted ya ha emitido su voto desde este dispositivo.", false);
                 } else {
                     enableVoteButton();
                 }
             }
         }
 
-        function lockVoteButton(reason) {
+        function lockVoteButton(reason, isSystemPaused = false) {
             voteBtn.disabled = true;
-            voteBtn.className = "w-full py-5 px-8 rounded-2xl font-extrabold text-base tracking-wider uppercase transition-all duration-300 bg-slate-900 border border-slate-800 text-slate-500 cursor-not-allowed opacity-80 shadow-none";
-            voteBtn.innerHTML = `
-                <svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m0 0v2m0-2h2m-2 0H10m11 3V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2h14a2 2 0 002-2zM9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg>
-                <span>Votaciones Pausadas</span>
-            `;
-            statusText.innerHTML = `<span class="text-red-400 font-semibold">⚠️ Mantenimiento de seguridad activo</span>`;
-            messageArea.className = "text-xs text-center font-medium text-red-400 bg-red-500/10 border border-red-500/20 py-2 px-4 rounded-xl w-full";
+            
+            if (isSystemPaused) {
+                // ESTILO DE PAUSA POR EMERGENCIA / ATAQUE
+                voteBtn.className = "w-full py-5 px-8 rounded-2xl font-extrabold text-base tracking-wider uppercase transition-all duration-300 bg-slate-900 border border-slate-800 text-slate-500 cursor-not-allowed opacity-80 shadow-none";
+                voteBtn.innerHTML = `
+                    <svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m0 0v2m0-2h2m-2 0H10m11 3V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2h14a2 2 0 002-2zM9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg>
+                    <span>Votaciones Pausadas</span>
+                `;
+                statusText.innerHTML = `<span class="text-red-400 font-semibold">⚠️ Mantenimiento de seguridad activo</span>`;
+                messageArea.className = "text-xs text-center font-medium text-red-400 bg-red-500/10 border border-red-500/20 py-2 px-4 rounded-xl w-full";
+            } else {
+                // ESTILO CUANDO EL USUARIO YA VOTÓ NORMALMENTE
+                voteBtn.className = "w-full py-5 px-8 rounded-2xl font-extrabold text-base tracking-wider uppercase transition-all duration-300 bg-slate-900 border border-emerald-500/30 text-emerald-400 cursor-not-allowed opacity-90 shadow-none";
+                voteBtn.innerHTML = `
+                    <svg class="w-5 h-5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                    <span>Voto Registrado con Éxito</span>
+                `;
+                statusText.innerHTML = `<span class="text-emerald-400 font-semibold">✓ Dispositivo ya verificado</span>`;
+                messageArea.className = "text-xs text-center font-medium text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 py-2 px-4 rounded-xl w-full";
+            }
+
             messageArea.textContent = reason;
         }
 
@@ -364,16 +377,16 @@
                 await saveIndexedDB(hardwareHash);
                 hasVoted = true;
 
-                lockVoteButton("Usted ya ha emitido su voto desde este dispositivo.");
+                lockVoteButton("Usted ya ha emitido su voto desde este dispositivo.", false);
 
             } catch (error) {
                 if (error.message === "ALREADY_VOTED") {
                     hasVoted = true;
                     localStorage.setItem(`voted_${hardwareHash}`, 'true');
                     await saveIndexedDB(hardwareHash);
-                    lockVoteButton("Usted ya ha emitido su voto desde este dispositivo.");
+                    lockVoteButton("Usted ya ha emitido su voto desde este dispositivo.", false);
                 } else if (error.message === "SYSTEM_PAUSED") {
-                    lockVoteButton("La web está bajo ataques. Pausamos las votaciones para hacer mantenimiento de seguridad.");
+                    lockVoteButton("La web está bajo ataques. Pausamos las votaciones para hacer mantenimiento de seguridad.", true);
                 } else {
                     console.error("Error al procesar voto:", error);
                     messageArea.className = "text-xs text-red-400 font-medium";
