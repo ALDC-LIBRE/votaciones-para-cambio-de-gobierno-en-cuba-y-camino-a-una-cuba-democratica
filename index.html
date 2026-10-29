@@ -257,7 +257,7 @@
         async function checkDatabaseVoteStatus() {
             try {
                 if (hasVoted) {
-                    lockVoteButton("Usted ya ha emitido su voto desde este dispositivo.", false);
+                    lockVoteButton("Usted ya ha emitido su voto. Gracias.", false);
                     return;
                 }
 
@@ -268,13 +268,13 @@
                     hasVoted = true;
                     localStorage.setItem(`voted_${hardwareHash}`, 'true');
                     await saveIndexedDB(hardwareHash);
-                    lockVoteButton("Usted ya ha emitido su voto desde este dispositivo.", false);
+                    lockVoteButton("Usted ya ha emitido su voto. Gracias.", false);
                 } else {
                     enableVoteButton();
                 }
             } catch (err) {
                 if (hasVoted) {
-                    lockVoteButton("Usted ya ha emitido su voto desde este dispositivo.", false);
+                    lockVoteButton("Usted ya ha emitido su voto. Gracias.", false);
                 } else {
                     enableVoteButton();
                 }
