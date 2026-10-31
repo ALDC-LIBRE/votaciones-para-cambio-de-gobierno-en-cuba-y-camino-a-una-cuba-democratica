@@ -136,6 +136,7 @@
         // Local State
         let hardwareHash = "";
         let hasVoted = false;
+        let userChoice = "";
         let isProcessing = false;
         let loadTime = Date.now();
 
@@ -165,12 +166,16 @@
                     const store = tx.objectStore(STORE_NAME);
                     const req = store.get("voto_estado");
                     req.onsuccess = () => {
-                        resolve(req.result && req.result.hash === hash);
+                        if (req.result && req.result.hash === hash) {
+                            resolve(req.result.choice || 'yes');
+                        } else {
+                            resolve(null);
+                        }
                     };
-                    req.onerror = () => resolve(false);
+                    req.onerror = () => resolve(null);
                 });
             } catch (e) {
-                return false;
+                return null;
             }
         }
 
@@ -243,9 +248,12 @@
             hardwareHash = await generateHardwareHash();
 
             const localStored = localStorage.getItem(`voted_${hardwareHash}`);
-            const indexedStored = await checkIndexedDB(hardwareHash);
+            const localChoice = localStorage.getItem(`voted_choice_${hardwareHash}`);
+            const indexedStoredChoice = await checkIndexedDB(hardwareHash);
 
-            if (localStored || indexedStored) {
+            userChoice = localChoice || indexedStoredChoice || "";
+
+            if (localStored || indexedStoredChoice) {
                 hasVoted = true;
             }
 
@@ -273,7 +281,7 @@
         async function checkDatabaseVoteStatus() {
             try {
                 if (hasVoted) {
-                    lockButtons("Usted ya ha emitido su voto. Gracias.", false);
+                    lockButtons("Usted ya ha emitido su voto. Gracias.", false, userChoice);
                     return;
                 }
 
@@ -282,22 +290,24 @@
 
                 if (userSnap.exists()) {
                     hasVoted = true;
+                    userChoice = userSnap.data().choice || 'yes';
                     localStorage.setItem(`voted_${hardwareHash}`, 'true');
-                    await saveIndexedDB(hardwareHash, userSnap.data().choice || 'unknown');
-                    lockButtons("Usted ya ha emitido su voto. Gracias.", false);
+                    localStorage.setItem(`voted_choice_${hardwareHash}`, userChoice);
+                    await saveIndexedDB(hardwareHash, userChoice);
+                    lockButtons("Usted ya ha emitido su voto. Gracias.", false, userChoice);
                 } else {
                     enableButtons();
                 }
             } catch (err) {
                 if (hasVoted) {
-                    lockButtons("Usted ya ha emitido su voto. Gracias.", false);
+                    lockButtons("Usted ya ha emitido su voto. Gracias.", false, userChoice);
                 } else {
                     enableButtons();
                 }
             }
         }
 
-        function lockButtons(reason, isSystemPaused = false) {
+        function lockButtons(reason, isSystemPaused = false, choice = 'yes') {
             voteYesBtn.disabled = true;
             voteNoBtn.disabled = true;
             
@@ -308,11 +318,19 @@
                 statusText.innerHTML = `<span class="text-red-400 font-semibold">⚠️ Mantenimiento de seguridad activo</span>`;
                 messageArea.className = "text-xs text-center font-medium text-red-400 bg-red-500/10 border border-red-500/20 py-2 px-4 rounded-xl w-full";
             } else {
-                voteYesBtn.className = "flex-1 py-4 px-2 rounded-2xl font-extrabold text-xs sm:text-sm uppercase bg-slate-900 border border-emerald-500/30 text-emerald-400 cursor-not-allowed opacity-90 flex items-center justify-center gap-1";
-                voteYesBtn.innerHTML = `<span>✓ SÍ Votado</span>`;
-                
-                voteNoBtn.className = "flex-1 py-4 px-2 rounded-2xl font-extrabold text-xs sm:text-sm uppercase bg-slate-900 border border-slate-800 text-slate-600 cursor-not-allowed opacity-50 flex items-center justify-center gap-1";
-                voteNoBtn.innerHTML = `<span>No Seleccionado</span>`;
+                if (choice === 'no') {
+                    voteYesBtn.className = "flex-1 py-4 px-2 rounded-2xl font-extrabold text-xs sm:text-sm uppercase bg-slate-900 border border-slate-800 text-slate-600 cursor-not-allowed opacity-50 flex items-center justify-center gap-1";
+                    voteYesBtn.innerHTML = `<span>No Seleccionado</span>`;
+                    
+                    voteNoBtn.className = "flex-1 py-4 px-2 rounded-2xl font-extrabold text-xs sm:text-sm uppercase bg-slate-900 border border-rose-500/30 text-rose-400 cursor-not-allowed opacity-90 flex items-center justify-center gap-1";
+                    voteNoBtn.innerHTML = `<span>✓ NO Votado</span>`;
+                } else {
+                    voteYesBtn.className = "flex-1 py-4 px-2 rounded-2xl font-extrabold text-xs sm:text-sm uppercase bg-slate-900 border border-emerald-500/30 text-emerald-400 cursor-not-allowed opacity-90 flex items-center justify-center gap-1";
+                    voteYesBtn.innerHTML = `<span>✓ SÍ Votado</span>`;
+                    
+                    voteNoBtn.className = "flex-1 py-4 px-2 rounded-2xl font-extrabold text-xs sm:text-sm uppercase bg-slate-900 border border-slate-800 text-slate-600 cursor-not-allowed opacity-50 flex items-center justify-center gap-1";
+                    voteNoBtn.innerHTML = `<span>No Seleccionado</span>`;
+                }
                 
                 statusText.innerHTML = `<span class="text-emerald-400 font-semibold">✓ Dispositivo ya verificado</span>`;
                 messageArea.className = "text-xs text-center font-medium text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 py-2 px-4 rounded-xl w-full";
@@ -402,17 +420,21 @@
                 });
 
                 localStorage.setItem(`voted_${hardwareHash}`, 'true');
+                localStorage.setItem(`voted_choice_${hardwareHash}`, choice);
                 await saveIndexedDB(hardwareHash, choice);
                 hasVoted = true;
+                userChoice = choice;
 
-                lockButtons("Usted ya ha emitido su voto desde este dispositivo.", false);
+                lockButtons("Usted ya ha emitido su voto desde este dispositivo.", false, choice);
 
             } catch (error) {
                 if (error.message === "ALREADY_VOTED") {
                     hasVoted = true;
                     localStorage.setItem(`voted_${hardwareHash}`, 'true');
+                    localStorage.setItem(`voted_choice_${hardwareHash}`, choice);
                     await saveIndexedDB(hardwareHash, choice);
-                    lockButtons("Usted ya ha emitido su voto desde este dispositivo.", false);
+                    userChoice = choice;
+                    lockButtons("Usted ya ha emitido su voto desde este dispositivo.", false, choice);
                 } else if (error.message === "SYSTEM_PAUSED") {
                     lockButtons("La web está bajo ataques. Pausamos las votaciones para hacer mantenimiento de seguridad.", true);
                 } else {
