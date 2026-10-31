@@ -74,15 +74,15 @@
             </p>
         </div>
 
-        <!-- Action Buttons Area -->
-        <div id="voting-actions" class="w-full flex flex-col gap-3">
+        <!-- Action Buttons Area (Side by Side) -->
+        <div id="voting-actions" class="w-full flex gap-3">
             <button id="vote-yes-btn" disabled 
-                class="w-full py-4 px-6 rounded-2xl font-black text-base tracking-wider uppercase transition-all duration-300 bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700/50 flex items-center justify-center gap-3">
+                class="flex-1 py-4 px-3 rounded-2xl font-black text-xs sm:text-sm tracking-wider uppercase transition-all duration-300 bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700/50 flex items-center justify-center gap-2">
                 <span>Cargando...</span>
             </button>
 
             <button id="vote-no-btn" disabled 
-                class="w-full py-4 px-6 rounded-2xl font-black text-base tracking-wider uppercase transition-all duration-300 bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700/50 flex items-center justify-center gap-3">
+                class="flex-1 py-4 px-3 rounded-2xl font-black text-xs sm:text-sm tracking-wider uppercase transition-all duration-300 bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700/50 flex items-center justify-center gap-2">
                 <span>Cargando...</span>
             </button>
         </div>
@@ -308,10 +308,12 @@
                 statusText.innerHTML = `<span class="text-red-400 font-semibold">⚠️ Mantenimiento de seguridad activo</span>`;
                 messageArea.className = "text-xs text-center font-medium text-red-400 bg-red-500/10 border border-red-500/20 py-2 px-4 rounded-xl w-full";
             } else {
-                voteYesBtn.className = "w-full py-4 px-6 rounded-2xl font-extrabold text-sm uppercase bg-slate-900 border border-emerald-500/30 text-emerald-400 cursor-not-allowed opacity-90";
-                voteYesBtn.innerHTML = `<span>✓ Voto Registrado con Éxito</span>`;
-                voteNoBtn.className = "w-full py-4 px-6 rounded-2xl font-extrabold text-sm uppercase bg-slate-900 border border-slate-800 text-slate-600 cursor-not-allowed opacity-50";
-                voteNoBtn.innerHTML = `<span>Opción No Seleccionada</span>`;
+                voteYesBtn.className = "flex-1 py-4 px-2 rounded-2xl font-extrabold text-xs sm:text-sm uppercase bg-slate-900 border border-emerald-500/30 text-emerald-400 cursor-not-allowed opacity-90 flex items-center justify-center gap-1";
+                voteYesBtn.innerHTML = `<span>✓ SÍ Votado</span>`;
+                
+                voteNoBtn.className = "flex-1 py-4 px-2 rounded-2xl font-extrabold text-xs sm:text-sm uppercase bg-slate-900 border border-slate-800 text-slate-600 cursor-not-allowed opacity-50 flex items-center justify-center gap-1";
+                voteNoBtn.innerHTML = `<span>No Seleccionado</span>`;
+                
                 statusText.innerHTML = `<span class="text-emerald-400 font-semibold">✓ Dispositivo ya verificado</span>`;
                 messageArea.className = "text-xs text-center font-medium text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 py-2 px-4 rounded-xl w-full";
             }
@@ -321,17 +323,17 @@
 
         function enableButtons() {
             voteYesBtn.disabled = false;
-            voteYesBtn.className = "w-full py-4 px-6 rounded-2xl font-black text-base tracking-wider uppercase transition-all duration-300 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-lg shadow-emerald-500/20 cursor-pointer border border-emerald-400/30 flex items-center justify-center gap-3";
+            voteYesBtn.className = "flex-1 py-4 px-3 rounded-2xl font-black text-xs sm:text-sm tracking-wider uppercase transition-all duration-300 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-lg shadow-emerald-500/20 cursor-pointer border border-emerald-400/30 flex items-center justify-center gap-1.5";
             voteYesBtn.innerHTML = `
-                <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
-                <span>SÍ (A favor del cambio)</span>
+                <svg class="w-4 h-4 text-white shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                <span>SÍ</span>
             `;
 
             voteNoBtn.disabled = false;
-            voteNoBtn.className = "w-full py-4 px-6 rounded-2xl font-black text-base tracking-wider uppercase transition-all duration-300 bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white shadow-lg shadow-red-500/20 cursor-pointer border border-red-400/30 flex items-center justify-center gap-3";
+            voteNoBtn.className = "flex-1 py-4 px-3 rounded-2xl font-black text-xs sm:text-sm tracking-wider uppercase transition-all duration-300 bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white shadow-lg shadow-red-500/20 cursor-pointer border border-red-400/30 flex items-center justify-center gap-1.5";
             voteNoBtn.innerHTML = `
-                <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                <span>NO / En contra</span>
+                <svg class="w-4 h-4 text-white shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                <span>NO</span>
             `;
 
             statusText.innerHTML = `<span class="text-slate-400">Listo para votar • Elija una opción</span>`;
@@ -354,8 +356,8 @@
 
             const activeBtn = choice === 'yes' ? voteYesBtn : voteNoBtn;
             activeBtn.innerHTML = `
-                <svg class="w-5 h-5 animate-spin text-white" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                <span>Procesando Voto Seguro...</span>
+                <svg class="w-4 h-4 animate-spin text-white shrink-0" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                <span>Procesando...</span>
             `;
 
             try {
