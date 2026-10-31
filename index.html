@@ -41,37 +41,53 @@
     </header>
 
     <!-- Main Content Area -->
-    <main class="w-full max-w-md flex flex-col items-center gap-8 my-auto py-4">
+    <main class="w-full max-w-md flex flex-col items-center gap-6 my-auto py-4">
 
-        <!-- Global Count Card -->
-        <div class="w-full bg-slate-900/90 border border-slate-800 rounded-3xl p-6 shadow-2xl text-center relative overflow-hidden backdrop-blur-sm">
-            <div class="absolute -right-10 -top-10 w-32 h-32 bg-sky-500/10 rounded-full blur-2xl"></div>
-            <div class="absolute -left-10 -bottom-10 w-32 h-32 bg-emerald-500/10 rounded-full blur-2xl"></div>
-
-            <p class="text-xs font-bold uppercase tracking-widest text-slate-400 mb-2">Total de Votos Registrados a Nivel Mundial</p>
-            
-            <!-- Number Counter Screen -->
-            <div id="counter-box" class="bg-slate-950 border border-slate-800/80 rounded-2xl py-6 px-4 my-2 flex items-center justify-center min-h-[100px] shadow-inner transition-all duration-300">
-                <span id="vote-count" class="text-5xl sm:text-6xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-sky-400 via-emerald-400 to-teal-200">
-                    --
-                </span>
+        <!-- Global Count Cards (Sí / No) -->
+        <div class="w-full grid grid-cols-2 gap-4">
+            <!-- Count SÍ -->
+            <div class="bg-slate-900/90 border border-slate-800 rounded-3xl p-4 shadow-xl text-center relative overflow-hidden backdrop-blur-sm">
+                <p class="text-[11px] font-bold uppercase tracking-widest text-emerald-400 mb-1">A Favor (SÍ)</p>
+                <div class="bg-slate-950 border border-slate-800/80 rounded-2xl py-4 px-2 flex items-center justify-center shadow-inner">
+                    <span id="vote-count-yes" class="text-3xl sm:text-4xl font-black tracking-tight text-emerald-400">
+                        --
+                    </span>
+                </div>
             </div>
 
-            <p id="status-text" class="text-xs text-slate-400 mt-2 flex items-center justify-center gap-2">
+            <!-- Count NO -->
+            <div class="bg-slate-900/90 border border-slate-800 rounded-3xl p-4 shadow-xl text-center relative overflow-hidden backdrop-blur-sm">
+                <p class="text-[11px] font-bold uppercase tracking-widest text-red-400 mb-1">En Contra (NO)</p>
+                <div class="bg-slate-950 border border-slate-800/80 rounded-2xl py-4 px-2 flex items-center justify-center shadow-inner">
+                    <span id="vote-count-no" class="text-3xl sm:text-4xl font-black tracking-tight text-red-400">
+                        --
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Status Box -->
+        <div class="w-full bg-slate-900/50 border border-slate-800/60 rounded-2xl py-3 px-4 text-center">
+            <p id="status-text" class="text-xs text-slate-400 flex items-center justify-center gap-2">
                 <svg class="w-3.5 h-3.5 animate-spin text-sky-400" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
                 Verificando credenciales del dispositivo...
             </p>
         </div>
 
-        <!-- Action Button -->
-        <div class="w-full flex flex-col items-center gap-3">
-            <button id="vote-btn" disabled 
-                class="w-full py-5 px-8 rounded-2xl font-black text-lg tracking-wide uppercase transition-all duration-300 shadow-lg bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700/50 flex items-center justify-center gap-3 group">
+        <!-- Action Buttons Area -->
+        <div id="voting-actions" class="w-full flex flex-col gap-3">
+            <button id="vote-yes-btn" disabled 
+                class="w-full py-4 px-6 rounded-2xl font-black text-base tracking-wider uppercase transition-all duration-300 bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700/50 flex items-center justify-center gap-3">
                 <span>Cargando...</span>
             </button>
-            
-            <p id="message-area" class="text-xs text-center min-h-[20px] font-medium transition-all duration-300"></p>
+
+            <button id="vote-no-btn" disabled 
+                class="w-full py-4 px-6 rounded-2xl font-black text-base tracking-wider uppercase transition-all duration-300 bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700/50 flex items-center justify-center gap-3">
+                <span>Cargando...</span>
+            </button>
         </div>
+
+        <p id="message-area" class="text-xs text-center min-h-[20px] font-medium transition-all duration-300 w-full"></p>
 
     </main>
 
@@ -107,12 +123,13 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
-        // Security secret salt for SHA-256 signature
         const HMAC_SALT = "CUBA_LIBRE_SECURITY_HASH_SALT_2024_PROTECTED";
 
         // Elements
-        const voteBtn = document.getElementById('vote-btn');
-        const voteCountEl = document.getElementById('vote-count');
+        const voteYesBtn = document.getElementById('vote-yes-btn');
+        const voteNoBtn = document.getElementById('vote-no-btn');
+        const voteCountYesEl = document.getElementById('vote-count-yes');
+        const voteCountNoEl = document.getElementById('vote-count-no');
         const statusText = document.getElementById('status-text');
         const messageArea = document.getElementById('message-area');
 
@@ -122,7 +139,6 @@
         let isProcessing = false;
         let loadTime = Date.now();
 
-        // Database & IndexedDB Consts
         const DB_NAME = "ALDC_LIBRE_SECURE_DB";
         const STORE_NAME = "registros";
 
@@ -158,13 +174,13 @@
             }
         }
 
-        async function saveIndexedDB(hash) {
+        async function saveIndexedDB(hash, choice) {
             try {
                 const idb = await openIndexedDB();
                 return new Promise((resolve, reject) => {
                     const tx = idb.transaction(STORE_NAME, "readwrite");
                     const store = tx.objectStore(STORE_NAME);
-                    store.put({ id: "voto_estado", hash: hash, timestamp: Date.now() });
+                    store.put({ id: "voto_estado", hash: hash, choice: choice, timestamp: Date.now() });
                     tx.oncomplete = () => resolve(true);
                     tx.onerror = () => reject(tx.error);
                 });
@@ -200,34 +216,32 @@
         // --- 3. INICIALIZACIÓN Y VERIFICACIÓN ---
         async function initSecurity() {
             try {
-                // A. Verificar Interruptor Maestro de Emergencia
                 const configRef = doc(db, "system_config", "controls");
                 const configSnap = await getDoc(configRef);
 
-                // Solo se pausa si el documento existe Y votingActive es estrictamente false
                 if (configSnap.exists()) {
                     const data = configSnap.data();
                     if (data.votingActive === false) {
-                        lockVoteButton("La web está bajo ataques. Pausamos las votaciones para hacer mantenimiento de seguridad.", true);
+                        lockButtons("La web está bajo ataques. Pausamos las votaciones para hacer mantenimiento de seguridad.", true);
                         
                         const voteDocRef = doc(db, "votes", "global_counter");
                         const counterSnap = await getDoc(voteDocRef);
                         if (counterSnap.exists()) {
-                            voteCountEl.textContent = Number(counterSnap.data().total || 0).toLocaleString();
+                            voteCountYesEl.textContent = Number(counterSnap.data().totalYes || 0).toLocaleString();
+                            voteCountNoEl.textContent = Number(counterSnap.data().totalNo || 0).toLocaleString();
                         } else {
-                            voteCountEl.textContent = "0";
+                            voteCountYesEl.textContent = "0";
+                            voteCountNoEl.textContent = "0";
                         }
                         return;
                     }
                 }
             } catch (e) {
-                console.warn("Aviso de red al verificar configuración, continuando con normalidad...", e);
+                console.warn("Aviso de red al verificar configuración...", e);
             }
 
-            // Generar huella de dispositivo
             hardwareHash = await generateHardwareHash();
 
-            // B. Revisión local profunda
             const localStored = localStorage.getItem(`voted_${hardwareHash}`);
             const indexedStored = await checkIndexedDB(hardwareHash);
 
@@ -235,29 +249,31 @@
                 hasVoted = true;
             }
 
-            // C. Sincronización en tiempo real del contador global en Firestore
+            // Sincronización en tiempo real de contadores SÍ / NO
             const voteDocRef = doc(db, "votes", "global_counter");
             onSnapshot(voteDocRef, (snapshot) => {
                 if (snapshot.exists()) {
                     const data = snapshot.data();
-                    voteCountEl.textContent = Number(data.total || 0).toLocaleString();
+                    voteCountYesEl.textContent = Number(data.totalYes || 0).toLocaleString();
+                    voteCountNoEl.textContent = Number(data.totalNo || 0).toLocaleString();
                 } else {
-                    voteCountEl.textContent = "0";
+                    voteCountYesEl.textContent = "0";
+                    voteCountNoEl.textContent = "0";
                 }
             }, (error) => {
-                if (!voteCountEl.textContent || voteCountEl.textContent === "--") {
-                    voteCountEl.textContent = "0";
+                if (!voteCountYesEl.textContent || voteCountYesEl.textContent === "--") {
+                    voteCountYesEl.textContent = "0";
+                    voteCountNoEl.textContent = "0";
                 }
             });
 
-            // D. Verificación remota directa en Firestore
             await checkDatabaseVoteStatus();
         }
 
         async function checkDatabaseVoteStatus() {
             try {
                 if (hasVoted) {
-                    lockVoteButton("Usted ya ha emitido su voto. Gracias.", false);
+                    lockButtons("Usted ya ha emitido su voto. Gracias.", false);
                     return;
                 }
 
@@ -267,39 +283,35 @@
                 if (userSnap.exists()) {
                     hasVoted = true;
                     localStorage.setItem(`voted_${hardwareHash}`, 'true');
-                    await saveIndexedDB(hardwareHash);
-                    lockVoteButton("Usted ya ha emitido su voto. Gracias.", false);
+                    await saveIndexedDB(hardwareHash, userSnap.data().choice || 'unknown');
+                    lockButtons("Usted ya ha emitido su voto. Gracias.", false);
                 } else {
-                    enableVoteButton();
+                    enableButtons();
                 }
             } catch (err) {
                 if (hasVoted) {
-                    lockVoteButton("Usted ya ha emitido su voto. Gracias.", false);
+                    lockButtons("Usted ya ha emitido su voto. Gracias.", false);
                 } else {
-                    enableVoteButton();
+                    enableButtons();
                 }
             }
         }
 
-        function lockVoteButton(reason, isSystemPaused = false) {
-            voteBtn.disabled = true;
+        function lockButtons(reason, isSystemPaused = false) {
+            voteYesBtn.disabled = true;
+            voteNoBtn.disabled = true;
             
             if (isSystemPaused) {
-                // ESTILO DE PAUSA POR EMERGENCIA / ATAQUE
-                voteBtn.className = "w-full py-5 px-8 rounded-2xl font-extrabold text-base tracking-wider uppercase transition-all duration-300 bg-slate-900 border border-slate-800 text-slate-500 cursor-not-allowed opacity-80 shadow-none";
-                voteBtn.innerHTML = `
-                    <svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m0 0v2m0-2h2m-2 0H10m11 3V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2h14a2 2 0 002-2zM9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg>
-                    <span>Votaciones Pausadas</span>
-                `;
+                voteYesBtn.className = "w-full py-4 px-6 rounded-2xl font-extrabold text-sm uppercase bg-slate-900 border border-slate-800 text-slate-500 cursor-not-allowed opacity-80";
+                voteYesBtn.innerHTML = `<span>Votaciones Pausadas</span>`;
+                voteNoBtn.className = "hidden";
                 statusText.innerHTML = `<span class="text-red-400 font-semibold">⚠️ Mantenimiento de seguridad activo</span>`;
                 messageArea.className = "text-xs text-center font-medium text-red-400 bg-red-500/10 border border-red-500/20 py-2 px-4 rounded-xl w-full";
             } else {
-                // ESTILO CUANDO EL USUARIO YA VOTÓ NORMALMENTE
-                voteBtn.className = "w-full py-5 px-8 rounded-2xl font-extrabold text-base tracking-wider uppercase transition-all duration-300 bg-slate-900 border border-emerald-500/30 text-emerald-400 cursor-not-allowed opacity-90 shadow-none";
-                voteBtn.innerHTML = `
-                    <svg class="w-5 h-5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
-                    <span>Voto Registrado con Éxito</span>
-                `;
+                voteYesBtn.className = "w-full py-4 px-6 rounded-2xl font-extrabold text-sm uppercase bg-slate-900 border border-emerald-500/30 text-emerald-400 cursor-not-allowed opacity-90";
+                voteYesBtn.innerHTML = `<span>✓ Voto Registrado con Éxito</span>`;
+                voteNoBtn.className = "w-full py-4 px-6 rounded-2xl font-extrabold text-sm uppercase bg-slate-900 border border-slate-800 text-slate-600 cursor-not-allowed opacity-50";
+                voteNoBtn.innerHTML = `<span>Opción No Seleccionada</span>`;
                 statusText.innerHTML = `<span class="text-emerald-400 font-semibold">✓ Dispositivo ya verificado</span>`;
                 messageArea.className = "text-xs text-center font-medium text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 py-2 px-4 rounded-xl w-full";
             }
@@ -307,19 +319,27 @@
             messageArea.textContent = reason;
         }
 
-        function enableVoteButton() {
-            voteBtn.disabled = false;
-            voteBtn.className = "w-full py-5 px-8 rounded-2xl font-black text-lg tracking-wider uppercase transition-all duration-300 bg-gradient-to-r from-sky-500 via-blue-600 to-indigo-600 hover:from-sky-400 hover:via-blue-500 hover:to-indigo-500 text-white shadow-xl shadow-sky-500/25 hover:shadow-sky-500/40 hover:-translate-y-0.5 active:translate-y-0.5 cursor-pointer border border-sky-400/30 flex items-center justify-center gap-3";
-            voteBtn.innerHTML = `
-                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
-                <span>Emitir Mi Voto</span>
+        function enableButtons() {
+            voteYesBtn.disabled = false;
+            voteYesBtn.className = "w-full py-4 px-6 rounded-2xl font-black text-base tracking-wider uppercase transition-all duration-300 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-lg shadow-emerald-500/20 cursor-pointer border border-emerald-400/30 flex items-center justify-center gap-3";
+            voteYesBtn.innerHTML = `
+                <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                <span>SÍ (A favor del cambio)</span>
             `;
-            statusText.innerHTML = `<span class="text-slate-400">Listo para votar • Dispositivo Verificado</span>`;
+
+            voteNoBtn.disabled = false;
+            voteNoBtn.className = "w-full py-4 px-6 rounded-2xl font-black text-base tracking-wider uppercase transition-all duration-300 bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white shadow-lg shadow-red-500/20 cursor-pointer border border-red-400/30 flex items-center justify-center gap-3";
+            voteNoBtn.innerHTML = `
+                <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                <span>NO / En contra</span>
+            `;
+
+            statusText.innerHTML = `<span class="text-slate-400">Listo para votar • Elija una opción</span>`;
             messageArea.textContent = "";
         }
 
-        // --- 4. EMISIÓN DEL VOTO ---
-        async function handleVote() {
+        // --- 4. EMISIÓN DEL VOTO (SÍ / NO) ---
+        async function handleVote(choice) {
             if (hasVoted || isProcessing) return;
 
             if (Date.now() - loadTime < 800) {
@@ -329,14 +349,16 @@
             }
 
             isProcessing = true;
-            voteBtn.disabled = true;
-            voteBtn.innerHTML = `
+            voteYesBtn.disabled = true;
+            voteNoBtn.disabled = true;
+
+            const activeBtn = choice === 'yes' ? voteYesBtn : voteNoBtn;
+            activeBtn.innerHTML = `
                 <svg class="w-5 h-5 animate-spin text-white" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
                 <span>Procesando Voto Seguro...</span>
             `;
 
             try {
-                // Chequeo de seguridad antes de escribir
                 const configRef = doc(db, "system_config", "controls");
                 const configSnap = await getDoc(configRef);
                 if (configSnap.exists() && configSnap.data().votingActive === false) {
@@ -344,7 +366,7 @@
                 }
 
                 const timeStamp = Date.now();
-                const transactionSignature = await computeSHA256(`${hardwareHash}::${timeStamp}`);
+                const transactionSignature = await computeSHA256(`${hardwareHash}::${timeStamp}::${choice}`);
 
                 const counterRef = doc(db, "votes", "global_counter");
                 const userVoteRef = doc(db, "user_registrations", hardwareHash);
@@ -356,49 +378,55 @@
                     }
 
                     const counterDoc = await transaction.get(counterRef);
-                    let currentTotal = 0;
+                    let currentYes = 0;
+                    let currentNo = 0;
 
                     if (counterDoc.exists()) {
-                        currentTotal = counterDoc.data().total || currentTotal;
+                        currentYes = counterDoc.data().totalYes || 0;
+                        currentNo = counterDoc.data().totalNo || 0;
                     }
 
                     transaction.set(userVoteRef, {
                         votedAt: new Date().toISOString(),
+                        choice: choice,
                         signature: transactionSignature
                     });
 
                     transaction.set(counterRef, {
-                        total: currentTotal + 1,
+                        totalYes: choice === 'yes' ? currentYes + 1 : currentYes,
+                        totalNo: choice === 'no' ? currentNo + 1 : currentNo,
                         lastUpdate: new Date().toISOString()
                     }, { merge: true });
                 });
 
                 localStorage.setItem(`voted_${hardwareHash}`, 'true');
-                await saveIndexedDB(hardwareHash);
+                await saveIndexedDB(hardwareHash, choice);
                 hasVoted = true;
 
-                lockVoteButton("Usted ya ha emitido su voto desde este dispositivo.", false);
+                lockButtons("Usted ya ha emitido su voto desde este dispositivo.", false);
 
             } catch (error) {
                 if (error.message === "ALREADY_VOTED") {
                     hasVoted = true;
                     localStorage.setItem(`voted_${hardwareHash}`, 'true');
-                    await saveIndexedDB(hardwareHash);
-                    lockVoteButton("Usted ya ha emitido su voto desde este dispositivo.", false);
+                    await saveIndexedDB(hardwareHash, choice);
+                    lockButtons("Usted ya ha emitido su voto desde este dispositivo.", false);
                 } else if (error.message === "SYSTEM_PAUSED") {
-                    lockVoteButton("La web está bajo ataques. Pausamos las votaciones para hacer mantenimiento de seguridad.", true);
+                    lockButtons("La web está bajo ataques. Pausamos las votaciones para hacer mantenimiento de seguridad.", true);
                 } else {
                     console.error("Error al procesar voto:", error);
                     messageArea.className = "text-xs text-red-400 font-medium";
                     messageArea.textContent = "Error al conectar con la base de datos. Intente de nuevo.";
-                    enableVoteButton();
+                    enableButtons();
                 }
             } finally {
                 isProcessing = false;
             }
         }
 
-        voteBtn.addEventListener('click', handleVote);
+        voteYesBtn.addEventListener('click', () => handleVote('yes'));
+        voteNoBtn.addEventListener('click', () => handleVote('no'));
+
         initSecurity();
     </script>
 </body>
